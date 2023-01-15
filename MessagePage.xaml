@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="DeviceSync.MessagePage"
+             Title="MessagePage">
+    <VerticalStackLayout>
+        <Entry x:Name="Message" Placeholder="Message" Text=""/>
+        <Button x:Name="Send" Text="Send" Clicked="Send_Clicked"/>
+        <Button x:Name="Screenshot" Text="Screenshot" Clicked="Screenshot_Clicked"/>
+        <Button x:Name="Receive" Text="Receive" Clicked="Recceive_Clicked"/>
+        <Button x:Name="OpenApp" Text="OpenExplorer" Clicked="OpenApp_Clicked"/>
+        <Button x:Name="Command" Text="Run Command" Clicked="Command_Clicked"/>
+        <Button x:Name="Receive1" Text="Receive" Clicked="Receive1_Clicked"/>
+        <Label x:Name="Chat"/>
+    </VerticalStackLayout>
+</ContentPage>
