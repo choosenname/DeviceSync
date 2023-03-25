@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="DeviceSync.MessagePage"
+             Title="MessagePage">
+    <VerticalStackLayout>
+
+        <ScrollView MinimumHeightRequest="50" MaximumHeightRequest="150" BackgroundColor="LightGray">
+            <Border>
+                <Label x:Name="Chat"/>
+            </Border>
+        </ScrollView>
+
+        <Entry x:Name="Message" Placeholder="Message" Text=""/>
+        <Button x:Name="SendMessage" Text="Send message" Clicked="SendMessage_Clicked"/>
+
+
+    </VerticalStackLayout>
+</ContentPage>

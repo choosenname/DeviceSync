@@ -9,31 +9,13 @@
             Padding="30,0"
             VerticalOptions="Center">
 
-            <Image
-                Source="dotnet_bot.png"
-                SemanticProperties.Description="Cute dot net bot waving hi to you!"
-                HeightRequest="200"
-                HorizontalOptions="Center" />
-
-            <Label
-                Text="Hello, World!"
-                SemanticProperties.HeadingLevel="Level1"
-                FontSize="32"
-                HorizontalOptions="Center" />
-
-            <Label
-                Text="Welcome to .NET Multi-platform App UI"
-                SemanticProperties.HeadingLevel="Level2"
-                SemanticProperties.Description="Welcome to dot net Multi platform App U I"
-                FontSize="18"
-                HorizontalOptions="Center" />
-
-            <Button
-                x:Name="CounterBtn"
-                Text="Click me"
-                SemanticProperties.Hint="Counts the number of times you click"
-                Clicked="OnCounterClicked"
-                HorizontalOptions="Center" />
+            <Label x:Name="Address"/>
+            
+            <Entry x:Name="RemoteAddress" Placeholder="Введите адрес" Text="192.168.0.1"/>
+            <Entry x:Name="LocalPort" Placeholder="Введите локальный порт" Text="5001"/>
+            <Entry x:Name="RemotePort" Placeholder="Введите удаленный порт" Text="5001"/>
+            
+            <Button x:Name="Message" Text="Сообщения" Clicked="Message_Clicked"/>
 
         </VerticalStackLayout>
     </ScrollView>
