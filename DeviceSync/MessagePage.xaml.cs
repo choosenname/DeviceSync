@@ -85,27 +85,14 @@ public partial class MessagePage : ContentPage
         Chat.Text += message + "\t" + DateTime.Now.ToString("HH:mm:ss:ffff") + "\n";
     }
 
-    private void SendFile_Clicked(object sender, EventArgs e)
+    private async void SendFile_Clicked(object sender, EventArgs e)
     {
-        try
-        {
-            /*FileResult result = await FilePicker.PickAsync();
+        FileResult result = await FilePicker.PickAsync();
 
-            if (result != null)
-            {
-                string filePath = result.FullPath;
-                AddMessageToChat("Путь: " + filePath);
-            }*/
-
-            string downloadsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-            string fileName = "example.txt";
-            string filePath = Path.Combine(downloadsFolder, fileName);
-            File.WriteAllText(filePath, "Пример текста для записи в файл.");
-            AddMessageToChat(downloadsFolder);
-        }
-        catch (Exception ex)
+        if (result != null)
         {
-            ExceptionNotify?.Invoke(this, ex);
+            string filePath = result.FullPath;
+            AddMessageToChat("Путь: " + filePath);
         }
     }
 }
