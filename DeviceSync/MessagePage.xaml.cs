@@ -1,47 +1,61 @@
-
-
-using System.Net.Sockets;
-using System.Net;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace DeviceSync;
 
 public partial class MessagePage : ContentPage
 {
-    static UdpClient udpSender;
-    static UdpClient udpReceiver;
+    private readonly UdpClient _udpSender;
+    private readonly UdpClient _udpReceiver;
 
-    event ExceptionHandler ExceptionNotify;
+    public event EventHandler<Exception> ExceptionNotify;
 
-
-    delegate void ExceptionHandler(Exception ex);
     public MessagePage()
     {
         InitializeComponent();
 
-        ExceptionNotify += (ex) => { DisplayAlert("Exception", ex.Message + "\n" + ex.StackTrace, "OK"); };
+        ExceptionNotify += (sender, ex) => DisplayAlert("Exception", ex.Message + "\n" + ex.StackTrace, "OK");
 
-        try
-        {
-            Receiver();
-        }
-        catch (Exception ex)
-        {
-            ExceptionNotify(ex);
-        }
+        _udpSender = new UdpClient();
+        _udpReceiver = new UdpClient(Singleton.Instance.LocalPort);
+
+        Receiver();
     }
 
     private async void Receiver()
     {
-        while (true)
+        try
         {
-            using (udpReceiver = new UdpClient(Singleton.Instance.LocalPort))
+            while (true)
             {
-                var result = await udpReceiver.ReceiveAsync();
+                var result = await _udpReceiver.ReceiveAsync();
+                var receivedJson = Encoding.UTF8.GetString(result.Buffer);
+                JObject receivedObject = JObject.Parse(receivedJson);
+                PackageType messageType = receivedObject["Type"].ToObject<PackageType>();
 
-                var message = Encoding.UTF8.GetString(result.Buffer);
+                switch (messageType)
+                {
+                    case PackageType.Text:
+                        {
+                            StringMessage textMessage = receivedObject.ToObject<StringMessage>();
+                            AddMessageToChat("--> " + textMessage.Content);
+                            break;
+                        }
 
-                AddMessageToChat("--> " + message);
+                    case PackageType.FileChunk:
+                        {
+                            FileChunk fileMessage = receivedObject.ToObject<FileChunk>();
+
+
+
+                            break;
+                        }
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            ExceptionNotify?.Invoke(this, ex);
         }
     }
 
@@ -49,23 +63,49 @@ public partial class MessagePage : ContentPage
     {
         try
         {
-            using (udpSender = new UdpClient())
-            {
-                udpSender.Connect(Singleton.Instance.IpAddress, Singleton.Instance.RemotePort);
+            StringMessage stringMessage = new StringMessage(PackageType.Text, Message.Text);
 
-                udpSender.Send(Encoding.UTF8.GetBytes(Message.Text));
+            _udpSender.Connect(Singleton.Instance.IpAddress, Singleton.Instance.RemotePort);
 
-                AddMessageToChat("Сообщение отправлено!");
-            }
+            string jsonFragment = JsonConvert.SerializeObject(stringMessage);
+            byte[] dataToSend = Encoding.UTF8.GetBytes(jsonFragment);
+
+            _udpSender.Send(dataToSend);
+
+            AddMessageToChat("Сообщение отправлено!");
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
-            ExceptionNotify(ex);
+            ExceptionNotify?.Invoke(this, ex);
         }
     }
 
     private void AddMessageToChat(string message)
     {
-        Chat.Text += message + "\t" + DateTime.Now.ToString("HH:mm:ss") + "\n";
+        Chat.Text += message + "\t" + DateTime.Now.ToString("HH:mm:ss:ffff") + "\n";
+    }
+
+    private void SendFile_Clicked(object sender, EventArgs e)
+    {
+        try
+        {
+            /*FileResult result = await FilePicker.PickAsync();
+
+            if (result != null)
+            {
+                string filePath = result.FullPath;
+                AddMessageToChat("Путь: " + filePath);
+            }*/
+
+            string downloadsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+            string fileName = "example.txt";
+            string filePath = Path.Combine(downloadsFolder, fileName);
+            File.WriteAllText(filePath, "Пример текста для записи в файл.");
+            AddMessageToChat(downloadsFolder);
+        }
+        catch (Exception ex)
+        {
+            ExceptionNotify?.Invoke(this, ex);
+        }
     }
 }
