@@ -8,6 +8,7 @@ public partial class MessagePage : ContentPage
 {
     private readonly UdpClient _udpSender;
     private readonly UdpClient _udpReceiver;
+    private const string DownloadPathKey = "DownloadPath";
 
     public event EventHandler<Exception> ExceptionNotify;
 
@@ -15,9 +16,11 @@ public partial class MessagePage : ContentPage
     {
         InitializeComponent();
 
-        ExceptionNotify += (sender, ex) => DisplayAlert("Exception", ex.ToString(), "OK");
+        ExceptionNotify += (sender, ex) => DisplayAlert("Exception", ex.Message + ex.Source + ex.StackTrace, "OK");
 
         _udpSender = new UdpClient();
+        _udpSender.Connect(Singleton.Instance.IpAddress, Singleton.Instance.RemotePort);
+
         _udpReceiver = new UdpClient(Singleton.Instance.LocalPort);
 
         Receiver();
@@ -62,17 +65,23 @@ public partial class MessagePage : ContentPage
         try
         {
             string fileName = Path.GetFileName(fileMessage.FileName);
-            string systemDownloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+            string folderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"); ;
 
-            // Путь к файлу, который нужно сохранить
-            string filePathToSave = Path.Combine(systemDownloadsPath, fileName);
-
-            using (var fileStream = new FileStream(filePathToSave, FileMode.Create, FileAccess.Write))
+            if (DeviceInfo.Platform == DevicePlatform.Android)
             {
-                await fileStream.WriteAsync(fileMessage.Content, 0, fileMessage.Content.Length);
+                folderPath = Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDownloads).ToString();
             }
 
-            AddMessageToChat($"Файл {fileName} сохранен!");
+
+            // Путь к файлу, который нужно сохранить
+            string filePathToSave = Path.Combine(folderPath, fileName);
+
+            using (var fileStream = new FileStream(filePathToSave, FileMode.Append, FileAccess.Write))
+            {
+                await fileStream.WriteAsync(fileMessage.Content.AsMemory(0, fileMessage.Content.Length));
+            }
+
+            AddMessageToChat($"Файл {fileName} сохранен! {filePathToSave}");
         }
         catch (Exception ex)
         {
@@ -86,7 +95,6 @@ public partial class MessagePage : ContentPage
         {
             StringMessage stringMessage = new(PackageType.Text, Message.Text);
 
-            _udpSender.Connect(Singleton.Instance.IpAddress, Singleton.Instance.RemotePort);
 
             string jsonFragment = JsonConvert.SerializeObject(stringMessage);
             byte[] dataToSend = Encoding.UTF8.GetBytes(jsonFragment);
@@ -108,38 +116,46 @@ public partial class MessagePage : ContentPage
 
     private async void SendFile_Clicked(object sender, EventArgs e)
     {
-        FileResult result = await FilePicker.PickAsync();
-
-        if (result != null)
+        try
         {
-            string filePath = result.FullPath;
+            FileResult result = await FilePicker.PickAsync();
 
-            // Open the file and read its contents
-            using (FileStream fs = File.OpenRead(filePath))
+            if (result != null)
             {
-                byte[] buffer = new byte[1024]; // Buffer for the data to be sent
-                int bytesRead = 0; // Number of bytes read from the file
+                //string filePath = result.FullPath;
 
-                // Loop through the file and send its contents in chunks
-                while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    // Create a new BytesMessage to send the chunk of file
-                    BytesMessage fileMessage = new BytesMessage(PackageType.FileChunk, buffer.Take(bytesRead).ToArray(), Path.GetFileName(filePath));
-
-                    // Convert the message to a JSON string
-                    string jsonFragment = JsonConvert.SerializeObject(fileMessage);
-
-                    // Convert the JSON string to a byte array
-                    byte[] dataToSend = Encoding.UTF8.GetBytes(jsonFragment);
-
-                    // Display a message to the user to indicate that the packet was sent successfully
-                    AddMessageToChat("Packet sent successfully.");
-                }
-
-                // Display a message to the user to indicate that the file was sent successfully
-                AddMessageToChat("File sent successfully!");
+                SendFile(result.FullPath);
             }
+        }
+        catch (Exception ex)
+        {
+            ExceptionNotify?.Invoke(this, ex);
         }
     }
 
+    private async void SendFile(string filePath)
+    {
+        // Open the file and read its contents
+        using FileStream fs = File.OpenRead(filePath);
+        byte[] buffer = new byte[1024]; // Buffer for the data to be sent
+        int bytesRead = 0; // Number of bytes read from the file
+
+        // Loop through the file and send its contents in chunks
+        while ((bytesRead = fs.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            // Create a new BytesMessage to send the chunk of file
+            BytesMessage fileMessage = new(PackageType.FileChunk, buffer.Take(bytesRead).ToArray(), Path.GetFileName(filePath));
+
+            string jsonFragment = JsonConvert.SerializeObject(fileMessage);
+            byte[] dataToSend = Encoding.UTF8.GetBytes(jsonFragment);
+
+            await _udpSender.SendAsync(dataToSend);
+
+            // Display a message to the user to indicate that the packet was sent successfully
+            AddMessageToChat("Packet sent successfully.");
+        }
+
+        // Display a message to the user to indicate that the file was sent successfully
+        AddMessageToChat("File sent successfully!");
+    }
 }

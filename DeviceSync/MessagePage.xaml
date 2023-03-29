@@ -12,8 +12,8 @@
         </ScrollView>
 
         <Entry x:Name="Message" Placeholder="Message" Text=""/>
-        <Button x:Name="SendMessage" Text="Send message" Clicked="SendMessage_Clicked"/>
-        <Button x:Name="SendFile" Text="Send file" Clicked="SendFile_Clicked"/>
+        <Button x:Name="SendMessageButton" Text="Send message" Clicked="SendMessage_Clicked"/>
+        <Button x:Name="SendFileButton" Text="Send file" Clicked="SendFile_Clicked"/>
 
     </VerticalStackLayout>
 </ContentPage>
