@@ -11,7 +11,8 @@ public partial class MessagePage : ContentPage
     private const int bufferSize = 8 * 1024; // Maximum UDP packet size
 
     public event EventHandler<Exception> ExceptionNotify;
-    AutoResetEvent waitHandler = new AutoResetEvent(true);  // объект-событие
+
+    private readonly AutoResetEvent waitHandler = new(true);  // объект-событие
 
     public MessagePage()
     {
@@ -24,10 +25,10 @@ public partial class MessagePage : ContentPage
 
         _udpReceiver = new UdpClient(Singleton.Instance.LocalPort);
 
-        Receiver();
+        ReceiverAsync().ConfigureAwait(false);
     }
 
-    private async void Receiver()
+    private async Task ReceiverAsync()
     {
         try
         {
@@ -36,40 +37,40 @@ public partial class MessagePage : ContentPage
                 var result = await _udpReceiver.ReceiveAsync();
                 var receivedJson = Encoding.UTF8.GetString(result.Buffer);
                 JObject receivedObject = JObject.Parse(receivedJson);
-                PackageType messageType = receivedObject["Type"].ToObject<PackageType>();
 
+                PackageType messageType = receivedObject["Type"].ToObject<PackageType>();
                 switch (messageType)
                 {
                     case PackageType.Text:
                         {
                             StringMessage textMessage = receivedObject.ToObject<StringMessage>();
-                            AddMessageToChat("--> " + textMessage.Content);
+                            AddText($"--> {textMessage.Content}");
                             break;
                         }
-
                     case PackageType.FileChunk:
                         {
-                            AddMessageToChat("Плюс кусок");
+                            AddText("Плюс кусок");
                             waitHandler.Set();
                             FileChunk fileMessage = receivedObject.ToObject<FileChunk>();
-                            await SaveFile(fileMessage);
+                            await SaveFileAsync(fileMessage);
                             break;
                         }
-
                     case PackageType.Acknowledge:
                         {
-                            AddMessageToChat("Подтвержден");
+                            AddText("Подтвержден");
                             AcknowledgePackage acknowledgePackage = receivedObject.ToObject<AcknowledgePackage>();
-                            await SendChunk(acknowledgePackage);
+                            await SendChunkAsync(acknowledgePackage);
                             break;
                         }
                 }
             }
         }
+
         catch (Exception ex)
         {
             Dispatcher.Dispatch(() => ExceptionNotify?.Invoke(this, ex));
         }
+
     }
 
     /*private void ResendAcknowledge(AcknowledgePackage acknowledgePackage)
@@ -81,76 +82,81 @@ public partial class MessagePage : ContentPage
         }
     }*/
 
-    private async Task SaveFile(FileChunk fileMessage)
+    private async Task SaveFileAsync(FileChunk file)
     {
         try
         {
-            string fileName = Path.GetFileName(fileMessage.FileName);
-            string folderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+            string fileName = Path.GetFileName(file.FileName);
 
 #if __ANDROID__
-    var downloadsDir = Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDownloads);
-    folderPath = downloadsDir.AbsolutePath;
+            var downloadsDir = Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDownloads);
+            string folderPath=downloadsDir.AbsolutePath;
+
+#else
+            string folderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+
 #endif
 
-            // Путь к файлу, который нужно сохранить
+
             string filePathToSave = Path.Combine(folderPath, fileName);
 
-            using (var fileStream = new FileStream(filePathToSave, FileMode.Append, FileAccess.Write))
+            using (FileStream fs = new(filePathToSave, FileMode.Append, FileAccess.Write))
             {
-                await fileStream.WriteAsync(fileMessage.Content.AsMemory(0, fileMessage.Content.Length));
+
+                await fs.WriteAsync(file.Content.AsMemory(0, file.Content.Length));
+
+                var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
+
+                await SendAsync(package);
+
             }
-
-            var package = new AcknowledgePackage(fileMessage.FileName, fileMessage.CurrentChunk);
-
-            SendPackage(package);
 
             await Task.Delay(1000);
+
             if (!waitHandler.WaitOne(0))
             {
-                AddMessageToChat("Переотправил");
-                SendPackage(package);
+                AddText($"Переотправил");
+                var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
+                await SendAsync(package);
             }
 
-            AddMessageToChat($"Файл {fileName} сохранен! {filePathToSave}");
+            AddText($"Файл {fileName} сохранен! {filePathToSave}");
         }
         catch (Exception ex)
         {
             ExceptionNotify?.Invoke(this, ex);
         }
+
     }
 
-    private void SendPackage(Message package)
+
+    private async Task SendAsync(Message package)
     {
         string jsonFragment = JsonConvert.SerializeObject(package);
         byte[] dataToSend = Encoding.UTF8.GetBytes(jsonFragment);
-
-        _udpSender.Send(dataToSend);
+        await _udpSender.SendAsync(dataToSend);
     }
 
-    private void SendMessage_Clicked(object sender, EventArgs e)
+    private async void SendMessage_Clicked(object sender, EventArgs e)
     {
         try
         {
             StringMessage stringMessage = new(PackageType.Text, Message.Text);
 
-            SendPackage(stringMessage);
+            await SendAsync(stringMessage);
 
-            AddMessageToChat("Сообщение отправлено!");
+            AddText("Сообщение отправлено!");
         }
         catch (Exception ex)
         {
+
             ExceptionNotify?.Invoke(this, ex);
         }
     }
 
-    private void AddMessageToChat(string message)
-    {
-        Dispatcher.Dispatch(() =>
-        {
-            Chat.Text += message + "\t" + DateTime.Now.ToString("HH:mm:ss:ffff") + "\n";
-        });
-    }
+    private void AddText(string message) =>
+                        Dispatcher.Dispatch(() => { Chat.Text += $"{message}\t{DateTime.Now:HH:mm:ss:ffff}\n"; });
+
 
     private async void SendFile_Clicked(object sender, EventArgs e)
     {
@@ -160,46 +166,47 @@ public partial class MessagePage : ContentPage
 
             if (result != null)
             {
-                await SendChunk(new AcknowledgePackage(result.FullPath, 0));
-                AddMessageToChat("File sent successfully!");
+                await SendChunkAsync(new AcknowledgePackage(result.FullPath, 0));
+                AddText("File send successfully!");
             }
         }
+
         catch (Exception ex)
         {
             ExceptionNotify?.Invoke(this, ex);
         }
     }
 
-    private Task SendChunk(AcknowledgePackage package)
+    private async Task SendChunkAsync(AcknowledgePackage package)
     {
-        return Task.Run(() =>
+        try
         {
-            try
+            string filePath = package.Content;
+            int currentChunk = package.CurrentChunk; // Current chunk being sent
+            long fileSize = new FileInfo(filePath).Length; // Size of the file to be sent
+            int numChunks = (int)Math.Ceiling((double)fileSize / bufferSize); // Number of chunks needed to send the file
+
+            using FileStream fs = File.OpenRead(filePath);
+
+            if (currentChunk < numChunks)
             {
-                string filePath = package.Content;
-                int currentChunk = package.CurrentChunk; // Current chunk being sent
+                fs.Position = currentChunk * bufferSize;
+                currentChunk++;
+
                 byte[] buffer = new byte[bufferSize]; // Buffer for the data to be sent
 
-                long fileSize = new FileInfo(filePath).Length; // Size of the file to be sent
-                int numChunks = (int)Math.Ceiling((double)fileSize / bufferSize); // Number of chunks needed to send the file
-                if (currentChunk < numChunks)
+                while (fs.Position < fs.Length)
                 {
-                    using FileStream fs = File.OpenRead(filePath);
-                    fs.Position = currentChunk * bufferSize;
-
-                    currentChunk++;
-
-                    int bytesRead = fs.Read(buffer, 0, buffer.Length);
-                    FileChunk fileMessage = new(PackageType.FileChunk, buffer.Take(bytesRead).ToArray(), filePath, currentChunk, numChunks);
-
-                    SendPackage(fileMessage);
+                    int bytesRead = await fs.ReadAsync(buffer.AsMemory(0, bufferSize));
+                    await SendAsync(new FileChunk(PackageType.FileChunk, buffer.Take(bytesRead).ToArray(), filePath, currentChunk, numChunks));
+                    ++currentChunk;
                 }
             }
-            catch (Exception ex)
-            {
-                Dispatcher.Dispatch(() => ExceptionNotify?.Invoke(this, ex));
-            }
-        });
+        }
+        catch (Exception ex)
+        {
+            Dispatcher.Dispatch(() => ExceptionNotify?.Invoke(this, ex));
+        }
     }
 
     /*private void SendFile(string filePath)
