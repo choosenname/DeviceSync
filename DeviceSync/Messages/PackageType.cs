@@ -10,6 +10,6 @@ namespace DeviceSync.Messages
     {
         Text,
         FileChunk,
-        Ack
+        Acknowledge
     }
 }
