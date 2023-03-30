@@ -73,15 +73,6 @@ public partial class MessagePage : ContentPage
 
     }
 
-    /*private void ResendAcknowledge(AcknowledgePackage acknowledgePackage)
-    {
-        if (!waitHandler.WaitOne(1000))
-        {
-            AddMessageToChat("Переотправил");
-            SendPackage(acknowledgePackage);
-        }
-    }*/
-
     private async Task SaveFileAsync(FileChunk file)
     {
         try
@@ -236,6 +227,15 @@ public partial class MessagePage : ContentPage
         catch (Exception ex)
         {
             Dispatcher.Dispatch(() => ExceptionNotify?.Invoke(this, ex));
+        }
+    }*/
+
+    /*private void ResendAcknowledge(AcknowledgePackage acknowledgePackage)
+    {
+        if (!waitHandler.WaitOne(1000))
+        {
+            AddMessageToChat("Переотправил");
+            SendPackage(acknowledgePackage);
         }
     }*/
 }
