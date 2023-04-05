@@ -14,13 +14,18 @@ public partial class MainPage : ContentPage
         LocalPort.Text = Preferences.Default.Get(LocalPortKey, "5001");
         RemotePort.Text = Preferences.Default.Get(RemotePortKey, "5002");
 
+        Address.Text = "Your IP Address: ...";
+
         Task.Run(() =>
         {
-            using (var socket = new Socket(SocketType.Stream, ProtocolType.Tcp))
+            using var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+            socket.Connect("example.com", 80);
+            string IPAdress = ((IPEndPoint)socket.LocalEndPoint).Address.ToString();
+
+            Dispatcher.Dispatch(() =>
             {
-                socket.Connect("example.com", 80);
-                Address.Text = "Your IP Address: " + ((IPEndPoint)socket.LocalEndPoint).Address.ToString();
-            }
+                Address.Text = "Your IP Address: " +  IPAdress;
+            });
         });
     }
 

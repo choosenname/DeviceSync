@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DeviceSync
+namespace DeviceSync.Messages
 {
     internal enum PackageType
     {
         Text,
-        FileChunk
+        FileChunk,
+        Acknowledge,
+        KeyEvent
     }
 }
