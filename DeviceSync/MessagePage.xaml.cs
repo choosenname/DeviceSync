@@ -81,7 +81,7 @@ public partial class MessagePage : ContentPage
 
 #if __ANDROID__
             var downloadsDir = Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDownloads);
-            string folderPath=downloadsDir.AbsolutePath;
+            string folderPath = downloadsDir.AbsolutePath;
 
 #else
             string folderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");

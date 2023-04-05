@@ -6,11 +6,10 @@ using System.Threading.Tasks;
 
 namespace DeviceSync.Messages
 {
-    internal enum PackageType
+    internal class KeyEventMessage : Message
     {
-        Text,
-        FileChunk,
-        Acknowledge,
-        KeyEvent
+        
+
+        //Keyboard.SendKeyEvent(Windows.UI.Xaml.Window.Current.CoreWindow, VirtualKey.Enter, true);
     }
 }
