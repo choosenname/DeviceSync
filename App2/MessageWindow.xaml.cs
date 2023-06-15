@@ -1,4 +1,5 @@
 ﻿using DeviceSync.Messages;
+using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -7,30 +8,28 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-using System.Xml.Linq;
-using Windows.Storage;
-using Windows.UI.Core;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
+using System.Windows;
 using DeviceSync;
-using static DeviceSync.Singleton;
-using System.Threading;
-using Windows.ApplicationModel.Core;
 
-namespace App1
+namespace App2
 {
-    public sealed partial class MessagePage : Page
+    public partial class MessageWindow : Window
     {
         private readonly UdpClient _udpSender;
         private readonly UdpClient _udpReceiver;
         private const int bufferSize = 8 * 1024; // Maximum UDP packet size
 
-        public MessagePage()
+        public event EventHandler<Exception> ExceptionNotify;
+
+        private readonly System.Threading.AutoResetEvent waitHandler = new System.Threading.AutoResetEvent(true); // объект-событие
+
+        public MessageWindow()
         {
             InitializeComponent();
 
-                        _udpSender = new UdpClient();
+            ExceptionNotify += (sender, ex) => MessageBox.Show($"Exception: {ex.Message}\n{ex.Source}\n{ex.StackTrace}", "Exception");
+
+            _udpSender = new UdpClient();
             _udpSender.Connect(Singleton.Instance.IpAddress, Singleton.Instance.RemotePort);
 
             _udpReceiver = new UdpClient(Singleton.Instance.LocalPort);
@@ -54,19 +53,20 @@ namespace App1
                         case PackageType.Text:
                             {
                                 StringMessage textMessage = receivedObject.ToObject<StringMessage>();
-                                await AddTextAsync($"--> {textMessage.Content}");
+                                AddText($"--> {textMessage.Content}");
                                 break;
                             }
                         case PackageType.FileChunk:
                             {
-                                await AddTextAsync("Плюс кусок");
+                                AddText("Плюс кусок");
+                                waitHandler.Set();
                                 FileChunk fileMessage = receivedObject.ToObject<FileChunk>();
                                 await SaveFileAsync(fileMessage);
                                 break;
                             }
                         case PackageType.Acknowledge:
                             {
-                                await AddTextAsync("Подтвержден");
+                                AddText("Подтвержден");
                                 AcknowledgePackage acknowledgePackage = receivedObject.ToObject<AcknowledgePackage>();
                                 await SendChunkAsync(acknowledgePackage);
                                 break;
@@ -76,13 +76,8 @@ namespace App1
             }
             catch (Exception ex)
             {
-                await CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExceptionNotify?.Invoke(this, ex));
+                Application.Current.Dispatcher.Invoke(() => ExceptionNotify?.Invoke(this, ex));
             }
-        }
-
-        private async Task AddTextAsync(string message)
-        {
-            await CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => { Chat.Text += $"{message}\t{DateTime.Now:HH:mm:ss:ffff}\n"; });
         }
 
         private async Task SaveFileAsync(FileChunk file)
@@ -91,24 +86,27 @@ namespace App1
             {
                 string fileName = Path.GetFileName(file.FileName);
 
-                StorageFolder localFolder = ApplicationData.Current.LocalFolder;
-                StorageFolder documentsFolder = await localFolder.CreateFolderAsync("Documents", CreationCollisionOption.OpenIfExists);
+                string folderPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                string downloadsFolderPath = Path.Combine(folderPath, "Downloads");
 
-                StorageFile storageFile = await documentsFolder.CreateFileAsync(fileName, CreationCollisionOption.GenerateUniqueName);
-
-                string filePathToSave = Path.Combine(storageFile.Path, fileName);
+                string filePathToSave = Path.Combine(downloadsFolderPath, fileName);
 
                 using (FileStream fs = new(filePathToSave, FileMode.Append, FileAccess.Write))
                 {
-                    await fs.WriteAsync(file.Content, 0, file.Content.Length, CancellationToken.None);
+                    await fs.WriteAsync(file.Content.AsMemory(0, file.Content.Length));
 
+                    var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
+                    await SendAsync(package);
                 }
 
-                var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
-
-                    await SendAsync(package);
-
                 await Task.Delay(250);
+
+                if (!waitHandler.WaitOne(0))
+                {
+                    AddText($"Переотправил");
+                    var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
+                    await SendAsync(package);
+                }
 
                 AddText($"Файл {fileName} сохранен! {filePathToSave}");
             }
@@ -129,7 +127,7 @@ namespace App1
         {
             try
             {
-                StringMessage stringMessage = new(PackageType.Text, MessageView.Text);
+                StringMessage stringMessage = new StringMessage(PackageType.Text, Message.Text);
 
                 await SendAsync(stringMessage);
 
@@ -141,25 +139,18 @@ namespace App1
             }
         }
 
-        private void AddText(string message)
-        {
-            Chat.Text += $"{message}\t{DateTime.Now:HH:mm:ss:ffff}\n";
-        }
+        private void AddText(string message) =>
+            Application.Current.Dispatcher.Invoke(() => { Chat.Text += $"{message}\t{DateTime.Now:HH:mm:ss:ffff}\n"; });
 
         private async void SendFile_Clicked(object sender, RoutedEventArgs e)
         {
             try
             {
-                var picker = new Windows.Storage.Pickers.FileOpenPicker();
-                picker.ViewMode = Windows.Storage.Pickers.PickerViewMode.List;
-                picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary;
-                picker.FileTypeFilter.Add("*");
-
-                var file = await picker.PickSingleFileAsync();
-
-                if (file != null)
+                OpenFileDialog openFileDialog = new OpenFileDialog();
+                if (openFileDialog.ShowDialog() == true)
                 {
-                    await SendChunkAsync(new AcknowledgePackage(file.Path, 0));
+                    string filePath = openFileDialog.FileName;
+                    await SendChunkAsync(new AcknowledgePackage(filePath, 0));
                     AddText("File send successfully!");
                 }
             }
@@ -175,41 +166,30 @@ namespace App1
             {
                 string filePath = package.Content;
                 int currentChunk = package.CurrentChunk; // Current chunk being sent
-                ulong fileSize = (await (await StorageFile.GetFileFromPathAsync(filePath)).GetBasicPropertiesAsync()).Size; // Size of the file to be sent
+                long fileSize = new FileInfo(filePath).Length; // Size of the file to be sent
                 int numChunks = (int)Math.Ceiling((double)fileSize / bufferSize); // Number of chunks needed to send the file
 
-                using (FileStream fs = File.OpenRead(filePath))
+                using FileStream fs = File.OpenRead(filePath);
+
+                if (currentChunk < numChunks)
                 {
-                    if (currentChunk < numChunks)
+                    fs.Position = currentChunk * bufferSize;
+                    currentChunk++;
+
+                    byte[] buffer = new byte[bufferSize]; // Buffer for the data to be sent
+
+                    while (fs.Position < fs.Length)
                     {
-                        fs.Position = currentChunk * bufferSize;
-                        currentChunk++;
-
-                        byte[] buffer = new byte[bufferSize]; // Buffer for the data to be sent
-
-                        while (fs.Position < fs.Length)
-                        {
-                            int bytesRead = await fs.ReadAsync(buffer, 0, bufferSize);
-                            await SendAsync(new FileChunk(PackageType.FileChunk, buffer.Take(bytesRead).ToArray(), filePath, currentChunk, numChunks));
-                            ++currentChunk;
-                        }
+                        int bytesRead = await fs.ReadAsync(buffer.AsMemory(0, bufferSize));
+                        await SendAsync(new FileChunk(PackageType.FileChunk, buffer.Take(bytesRead).ToArray(), filePath, currentChunk, numChunks));
+                        ++currentChunk;
                     }
                 }
             }
             catch (Exception ex)
             {
-                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => ExceptionNotify?.Invoke(this, ex));
+                Application.Current.Dispatcher.Invoke(() => ExceptionNotify?.Invoke(this, ex));
             }
-        }
-
-        public event EventHandler<Exception> ExceptionNotify;
-
-        protected override void OnNavigatedFrom(NavigationEventArgs e)
-        {
-            base.OnNavigatedFrom(e);
-
-            _udpSender?.Close();
-            _udpReceiver?.Close();
         }
     }
 }

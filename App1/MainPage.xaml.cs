@@ -36,9 +36,9 @@ namespace App1
         {
             InitializeComponent();
             ApplicationDataContainer localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
-            RemoteAddress.Text = localSettings.Values["IpAddressKey"] as string ?? string.Empty;
-            LocalPort.Text = localSettings.Values["LocalPortKey"] as string ?? string.Empty;
-            RemotePort.Text = localSettings.Values["RemotePortKey"] as string ?? string.Empty;
+            RemoteAddress.Text = localSettings.Values[IpAddressKey] as string ?? string.Empty;
+            LocalPort.Text = localSettings.Values[LocalPortKey] as string ?? string.Empty;
+            RemotePort.Text = localSettings.Values[RemotePortKey] as string ?? string.Empty;
 
             Address.Text = "Your IP Address: ...";
 
@@ -62,9 +62,9 @@ namespace App1
             Singleton.Instance.RemotePort = Convert.ToInt32(RemotePort.Text);
 
             ApplicationDataContainer localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
-            localSettings.Values["IpAddressKey"] = RemoteAddress.Text;
-            localSettings.Values["LocalPortKey"] = LocalPort.Text;
-            localSettings.Values["RemotePortKey"] = RemotePort.Text;
+            localSettings.Values[IpAddressKey] = RemoteAddress.Text;
+            localSettings.Values[LocalPortKey] = LocalPort.Text;
+            localSettings.Values[RemotePortKey] = RemotePort.Text;
 
             Window.Current.Content = new Frame()
             {

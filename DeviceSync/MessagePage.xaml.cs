@@ -12,7 +12,7 @@ public partial class MessagePage : ContentPage
 
     public event EventHandler<Exception> ExceptionNotify;
 
-    private readonly AutoResetEvent waitHandler = new(true);  // объект-событие
+    private readonly AutoResetEvent waitHandler = new AutoResetEvent(true); // объект-событие
 
     public MessagePage()
     {
@@ -65,12 +65,10 @@ public partial class MessagePage : ContentPage
                 }
             }
         }
-
         catch (Exception ex)
         {
-            Dispatcher.Dispatch(() => ExceptionNotify?.Invoke(this, ex));
+            Device.BeginInvokeOnMainThread(() => ExceptionNotify?.Invoke(this, ex));
         }
-
     }
 
     private async Task SaveFileAsync(FileChunk file)
@@ -93,16 +91,13 @@ public partial class MessagePage : ContentPage
 
             using (FileStream fs = new(filePathToSave, FileMode.Append, FileAccess.Write))
             {
-
                 await fs.WriteAsync(file.Content.AsMemory(0, file.Content.Length));
 
                 var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
-
                 await SendAsync(package);
-
             }
 
-            await Task.Delay(1000);
+            await Task.Delay(250);
 
             if (!waitHandler.WaitOne(0))
             {
@@ -117,22 +112,20 @@ public partial class MessagePage : ContentPage
         {
             ExceptionNotify?.Invoke(this, ex);
         }
-
     }
-
 
     private async Task SendAsync(Message package)
     {
         string jsonFragment = JsonConvert.SerializeObject(package);
         byte[] dataToSend = Encoding.UTF8.GetBytes(jsonFragment);
-        await _udpSender.SendAsync(dataToSend);
+        await _udpSender.SendAsync(dataToSend, dataToSend.Length);
     }
 
     private async void SendMessage_Clicked(object sender, EventArgs e)
     {
         try
         {
-            StringMessage stringMessage = new(PackageType.Text, Message.Text);
+            StringMessage stringMessage = new StringMessage(PackageType.Text, Message.Text);
 
             await SendAsync(stringMessage);
 
@@ -140,14 +133,12 @@ public partial class MessagePage : ContentPage
         }
         catch (Exception ex)
         {
-
             ExceptionNotify?.Invoke(this, ex);
         }
     }
 
     private void AddText(string message) =>
-                        Dispatcher.Dispatch(() => { Chat.Text += $"{message}\t{DateTime.Now:HH:mm:ss:ffff}\n"; });
-
+        Device.BeginInvokeOnMainThread(() => { Chat.Text += $"{message}\t{DateTime.Now:HH:mm:ss:ffff}\n"; });
 
     private async void SendFile_Clicked(object sender, EventArgs e)
     {
@@ -161,7 +152,6 @@ public partial class MessagePage : ContentPage
                 AddText("File send successfully!");
             }
         }
-
         catch (Exception ex)
         {
             ExceptionNotify?.Invoke(this, ex);
@@ -196,46 +186,46 @@ public partial class MessagePage : ContentPage
         }
         catch (Exception ex)
         {
-            Dispatcher.Dispatch(() => ExceptionNotify?.Invoke(this, ex));
+            Device.BeginInvokeOnMainThread(() => ExceptionNotify?.Invoke(this, ex));
         }
     }
-
-    /*private void SendFile(string filePath)
-    {
-        try
-        {
-            const int bufferSize = 65507; // Maximum UDP packet size
-            byte[] buffer = new byte[bufferSize]; // Buffer for the data to be sent
-            long fileSize = new FileInfo(filePath).Length; // Size of the file to be sent
-            int numChunks = (int)Math.Ceiling((double)fileSize / bufferSize); // Number of chunks needed to send the file
-            int currentChunk = 0; // Current chunk being sent
-
-            using FileStream fs = File.OpenRead(filePath);
-
-            while (currentChunk < numChunks)
-            {
-                int bytesRead = fs.Read(buffer, 0, buffer.Length);
-                FileChunk fileMessage = new(PackageType.FileChunk, buffer.Take(bytesRead).ToArray(), Path.GetFileName(filePath), currentChunk, numChunks);
-
-                string jsonFragment = JsonConvert.SerializeObject(fileMessage);
-                byte[] dataToSend = Encoding.UTF8.GetBytes(jsonFragment);
-                _udpSender.Send(dataToSend);
-
-                currentChunk++;
-            }
-        }
-        catch (Exception ex)
-        {
-            Dispatcher.Dispatch(() => ExceptionNotify?.Invoke(this, ex));
-        }
-    }*/
-
-    /*private void ResendAcknowledge(AcknowledgePackage acknowledgePackage)
-    {
-        if (!waitHandler.WaitOne(1000))
-        {
-            AddMessageToChat("Переотправил");
-            SendPackage(acknowledgePackage);
-        }
-    }*/
 }
+
+/*private void SendFile(string filePath)
+{
+    try
+    {
+        const int bufferSize = 65507; // Maximum UDP packet size
+        byte[] buffer = new byte[bufferSize]; // Buffer for the data to be sent
+        long fileSize = new FileInfo(filePath).Length; // Size of the file to be sent
+        int numChunks = (int)Math.Ceiling((double)fileSize / bufferSize); // Number of chunks needed to send the file
+        int currentChunk = 0; // Current chunk being sent
+
+        using FileStream fs = File.OpenRead(filePath);
+
+        while (currentChunk < numChunks)
+        {
+            int bytesRead = fs.Read(buffer, 0, buffer.Length);
+            FileChunk fileMessage = new(PackageType.FileChunk, buffer.Take(bytesRead).ToArray(), Path.GetFileName(filePath), currentChunk, numChunks);
+
+            string jsonFragment = JsonConvert.SerializeObject(fileMessage);
+            byte[] dataToSend = Encoding.UTF8.GetBytes(jsonFragment);
+            _udpSender.Send(dataToSend);
+
+            currentChunk++;
+        }
+    }
+    catch (Exception ex)
+    {
+        Dispatcher.Dispatch(() => ExceptionNotify?.Invoke(this, ex));
+    }
+}*/
+
+/*private void ResendAcknowledge(AcknowledgePackage acknowledgePackage)
+{
+    if (!waitHandler.WaitOne(1000))
+    {
+        AddMessageToChat("Переотправил");
+        SendPackage(acknowledgePackage);
+    }
+}*/

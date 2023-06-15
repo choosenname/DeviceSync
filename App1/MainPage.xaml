@@ -19,7 +19,7 @@
 
                 <TextBox x:Name="RemoteAddress" PlaceholderText="Введите адрес" Text="192.168.0.1"/>
                 <TextBox x:Name="LocalPort" PlaceholderText="Введите локальный порт" Text="5001"/>
-                <TextBox x:Name="RemotePort" PlaceholderText="Введите удаленный порт" Text="5001"/>
+                <TextBox x:Name="RemotePort" PlaceholderText="Введите удаленный порт" Text="5002"/>
 
                 <Button x:Name="Message" Content="Сообщения" Click="Message_Clicked"/>
                 </StackPanel>
