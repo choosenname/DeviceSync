@@ -14,8 +14,8 @@
             <Entry x:Name="RemoteAddress" Placeholder="Введите адрес" Text="192.168.0.1"/>
             <Entry x:Name="LocalPort" Placeholder="Введите локальный порт" Text="5001"/>
             <Entry x:Name="RemotePort" Placeholder="Введите удаленный порт" Text="5001"/>
-            
-            <Button x:Name="Message" Text="Сообщения" Clicked="Message_Clicked"/>
+
+            <Button x:Name="Message" Text="Подключение" Clicked="Message_Clicked"/>
 
         </VerticalStackLayout>
     </ScrollView>

@@ -11,6 +11,7 @@ namespace DeviceSync.Messages
         Text,
         FileChunk,
         Acknowledge,
-        KeyEvent
+        KeyEvent,
+        Command
     }
 }

