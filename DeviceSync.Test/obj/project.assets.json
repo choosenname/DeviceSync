@@ -14,11 +14,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\DeviceSync\\Test\\Test.csproj",
-      "projectName": "Test",
-      "projectPath": "D:\\DeviceSync\\Test\\Test.csproj",
+      "projectUniqueName": "D:\\DeviceSync\\DeviceSync.Test\\DeviceSync.Test.csproj",
+      "projectName": "DeviceSync.Test",
+      "projectPath": "D:\\DeviceSync\\DeviceSync.Test\\DeviceSync.Test.csproj",
       "packagesPath": "C:\\Users\\forsp\\.nuget\\packages\\",
-      "outputPath": "D:\\DeviceSync\\Test\\obj\\",
+      "outputPath": "D:\\DeviceSync\\DeviceSync.Test\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "D:\\Programs\\Microsoft Visual Studio\\Shared\\NuGetPackages"
