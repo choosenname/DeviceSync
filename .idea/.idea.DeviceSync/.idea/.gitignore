@@ -11,3 +11,6 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+# Solutin ignore files
+/obj/
+/bin/
