@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceSync.Test", "DeviceSync.Test\DeviceSync.Test.csproj", "{AF9A9CC9-0EF5-4D65-983B-3603D125A6B6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceSync.Application", "DeviceSync.Application\DeviceSync.Application.csproj", "{7CD4300F-160E-453A-8309-5425638101FB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{AF9A9CC9-0EF5-4D65-983B-3603D125A6B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AF9A9CC9-0EF5-4D65-983B-3603D125A6B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AF9A9CC9-0EF5-4D65-983B-3603D125A6B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7CD4300F-160E-453A-8309-5425638101FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7CD4300F-160E-453A-8309-5425638101FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7CD4300F-160E-453A-8309-5425638101FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7CD4300F-160E-453A-8309-5425638101FB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

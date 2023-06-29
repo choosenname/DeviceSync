@@ -3,7 +3,7 @@ Mobile client:
 - MVVM
 
 Desktop client:
-- UWP / [Avalonia UI](https://avaloniaui.net/)
+- [Avalonia UI](https://avaloniaui.net/)
 - MVVM
 
 Server:
