@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AvaloniaProject">
+    <option name="projectPerEditor">
+      <map>
+        <entry key="DeviceSync.Application/App.axaml" value="DeviceSync.Application/DeviceSync.Application.csproj" />
+        <entry key="DeviceSync.Application/Views/MainWindow.axaml" value="DeviceSync.Application/DeviceSync.Application.csproj" />
+      </map>
+    </option>
+  </component>
+</project>
