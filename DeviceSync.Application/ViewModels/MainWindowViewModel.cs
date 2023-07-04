@@ -20,7 +20,11 @@ public class MainWindowViewModel : ViewModelBase
         Task.Run(ReceiveAllMessages);
         SendRequestsCommand = ReactiveCommand.Create(SendRequests);
     }
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> dev
     public ObservableCollection<string> ReceivedMessages { get; } = new();
 
     public ICommand SendRequestsCommand { get; }
